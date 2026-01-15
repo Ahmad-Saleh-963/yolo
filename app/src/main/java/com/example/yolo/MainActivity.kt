@@ -32,14 +32,14 @@ import com.example.yolo.yolo.camera.CameraPreview
 import com.example.yolo.ui.theme.YoloTheme
 import kotlin.math.abs
 
-/**
- * الفئة المسؤولة عن إدارة الحالة والبيانات الخاصة بالكشف (YOLO)
- */
 class MainViewModel : ViewModel() {
     var detection by mutableStateOf<Detection?>(null)
     var frameSize by mutableStateOf(Size(1, 1))
     var errorMessage by mutableStateOf<String?>(null)
-    var detector: YoloDetector? = null
+    
+    // تغيير: جعل الـ detector عبارة عن State ليتم مراقبته
+    var detector by mutableStateOf<YoloDetector?>(null)
+        private set
 
     fun initDetector(context: android.content.Context) {
         if (detector == null) {
@@ -70,11 +70,11 @@ class MainActivity : ComponentActivity() {
     fun MainScreen(vm: MainViewModel = viewModel()) {
         val context = LocalContext.current
         
-        // تهيئة الموديل لمرة واحدة
         LaunchedEffect(Unit) {
             vm.initDetector(context)
         }
 
+        // الآن سيتم إعادة حساب analyzer فور تغير قيمة detector
         val analyzer = remember(vm.detector) {
             vm.detector?.let {
                 YoloAnalyzer(it) { det, size ->
@@ -88,6 +88,9 @@ class MainActivity : ComponentActivity() {
             if (analyzer != null) {
                 CameraPreview(analyzer)
                 DetectionOverlay(vm.detection, vm.frameSize)
+            } else if (vm.errorMessage == null) {
+                // حالة التحميل
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
             
             vm.errorMessage?.let { ErrorDisplay(it) }
@@ -99,9 +102,7 @@ class MainActivity : ComponentActivity() {
 fun PermissionGateway(content: @Composable () -> Unit) {
     val context = LocalContext.current
     var hasPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-        )
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -138,32 +139,14 @@ fun BoxScope.DetectionOverlay(detection: Detection?, frameSize: Size) {
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${det.label} | ${(det.score * 100).toInt()}%",
-                color = Color.White,
-                fontSize = 14.sp
-            )
+            Text(text = "${det.label} | ${(det.score * 100).toInt()}%", color = Color.White)
         }
     }
 }
 
 @Composable
 fun ErrorDisplay(message: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f))
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = message,
-            color = Color.White,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .background(Color.Red, RoundedCornerShape(8.dp))
-                .padding(16.dp)
-        )
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).padding(24.dp), Alignment.Center) {
+        Text(text = message, color = Color.White, textAlign = TextAlign.Center, modifier = Modifier.background(Color.Red, RoundedCornerShape(8.dp)).padding(16.dp))
     }
 }
