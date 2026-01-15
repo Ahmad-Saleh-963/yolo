@@ -1,0 +1,44 @@
+from ultralytics import YOLO
+import os
+import shutil
+
+# ========= الإعدادات =========
+MODEL_PATH = r"C:\Users\birka\Desktop\yolov8n.pt"
+OUTPUT_DIR = r"C:\Users\birka\OneDrive\Desktop\data"
+
+# إنشاء مجلد الإخراج إذا لم يكن موجودًا
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+def main():
+    print("🔄 Loading YOLOv8 model...")
+    model = YOLO(MODEL_PATH)
+
+    print("📦 Exporting to ONNX...")
+    # التصدير بدون تحديد مجلد (سينشأ بجانب .pt)
+    model.export(
+        format="onnx",
+        imgsz=640,
+        opset=12,
+        simplify=True
+    )
+
+    # مسار الملف الذي تم إنشاؤه
+    onnx_src = os.path.join(os.path.dirname(MODEL_PATH), "yolov8n.onnx")
+    onnx_dst = os.path.join(OUTPUT_DIR, "yolov8n.onnx")
+
+    # نسخ ONNX إلى مجلد OUTPUT_DIR ليصبح مع labels
+    shutil.copyfile(onnx_src, onnx_dst)
+
+    # استخراج أسماء الكلاسات وإنشاء labels.txt
+    labels_path = os.path.join(OUTPUT_DIR, "labels.txt")
+    with open(labels_path, "w", encoding="utf-8") as f:
+        for name in model.names.values():
+            f.write(f"{name}\n")
+
+    print("✅ DONE!")
+    print(f"📁 ONNX file saved at: {onnx_dst}")
+    print(f"🏷 labels.txt saved at: {labels_path}")
+
+
+if __name__ == "__main__":
+    main()
